@@ -25,6 +25,7 @@ library(Rmisc)
 library(fields) #https://www.rdocumentation.org/packages/fields/versions/9.8-6/topics/interp.surface
 library(plot3D) #https://rpubs.com/yoshio/95844
 library(yarrr)
+library(car) 
 #------------------------------------------------
 
 
@@ -43,28 +44,28 @@ names(abs)<-c(abs[1,])
 abs<-abs[-1,]
 abs$sp<-row.names(abs)
 
-FvFm<-read_excel("Data/Bioesta.xlsx", sheet = "Database")
+FvFm<-read_excel("Data/Bioesta.xlsx", sheet = "Datos histológicos")
 FvFm<-data.frame(FvFm)
 str(FvFm)
+#------------------------------------------------
 masa<-data.frame(FvFm$nombre_cientifico, FvFm$n_serie_absorvancia, FvFm$masa_hoja_chl_g)
 masa<-na.omit(masa)
 masa<-masa[c(-2,-4,-6,-8,-10,-12,-14,-16,-18,-20,-22),]
 names(masa)<-c("cod_sp","n_serie_absorvancia", "masa_g")
-
+#------------------------------------------------
 pigments<-data.frame(masa, abs)
 pigments$Chl_a_ug_g<-(12.25*pigments$X662.9-2.79*pigments$X646.6)*(5/pigments$masa_g)
 pigments$Chl_b_ug_g<-(21.5*pigments$X646.6-5.10*pigments$X662.9)*(5/pigments$masa_g)
 pigments$Chl_xc_ug_g<-((1000*pigments$X470.4-1.82*pigments$Chl_a_ug_g-85.02*pigments$Chl_b_ug_g)/198)*(5/pigments$masa_g)
 pigments$Chl_xc_ug_g[pigments$Chl_xc_ug_g<0]<-0
-
+#------------------------------------------------
 write.xlsx(pigments, "Data/Pigments.xlsx",
            sheetName="pigments",col.names=TRUE,
            row.names=FALSE, append=FALSE,
            showNA=TRUE, password=NULL)
-
+#------------------------------------------------
 FvFm$FvFm_index<-(FvFm$Fv.Fm_haz-FvFm$Fv.Fm_enves)
 FvFm2<-FvFm[FvFm$Fv.Fm_haz>=0.72, ] # Mayor a 90% de Fv/Fmm, donde 0.8 es 100%, 0.72/0.8= 90%
-plot(FvFm2[,c(-1:-7, -16:-21)])
 #------------------------------------------------
 
 
@@ -73,14 +74,25 @@ plot(FvFm2[,c(-1:-7, -16:-21)])
 # Fig. Spearman - Correlations.
 #------------------------------------------------
 str(FvFm2)
-d <- FvFm2[, c(22,8,9,10,11,12,13,14,15)]
+FvFm2<- FvFm2[, c(-16)]
+FvFm2<- na.omit(FvFm2)
+str(FvFm2)
+
+FvFm2$grosor_um<-FvFm2$grosor_epidermis_sup_um +
+                 FvFm2$grosor_empalizado_um + 
+                 FvFm2$grosor_esponjoso_um + 
+                 FvFm2$grosor_epidermis_inf_um
+FvFm2$emp_esp<-FvFm2$grosor_empalizado_um/FvFm2$grosor_esponjoso_um
+str(FvFm2)
+
+d <- FvFm2[, c(22,20,9,10,11,12,13,14,15)]
 d <- na.omit(d)
 hc <- hclust(as.dist(1-cor(d, method='spearman', use='pairwise.complete.obs')))
 #hc.order <- order.dendrogram(as.dendrogram(hc))
 #d <- d[ ,hc]#d[ ,hc.order]
 gr <- as.factor(FvFm2$tipo_hoja)
 
-cols.key <- scales::muted(c('black', 'black', 'black'))
+cols.key <- scales::muted(c('blue', 'red', 'gray'))
 cols.key <- adjustcolor(cols.key, alpha.f=1)
 pchs.key <- c(19,15,17)
 
@@ -122,13 +134,36 @@ pairs(d,
 )
 #dev.off()
 #------------------------------------------------
+names(FvFm2)
+FvFm2<-FvFm2[c(-27,-66,-69),]
+#------------------------------------------------
+mod1<-lm(emp_esp ~ FvFm_index + grosor_mm, data=FvFm2)
+summary(mod1)
+outlierTest(mod1)
+#------------------------------------------------
+mod1<-lm(emp_esp ~ FvFm_index + SLA, data=FvFm2)
+summary(mod1)
+outlierTest(mod1)
+#------------------------------------------------
+mod1<-lm(emp_esp ~ FvFm_index + masa_fresco_g, data=FvFm2)
+summary(mod1)
+plot(mod1)
+outlierTest(mod1, 3)
+#------------------------------------------------
+mod1<-lm(emp_esp ~ FvFm_index + masa_seco_g, data=FvFm2)
+summary(mod1)
+outlierTest(mod1, 3)
+ #------------------------------------------------
+plot(FvFm2$masa_fresco_g[FvFm2$tipo_hoja=="Madura"], FvFm2$emp_esp[FvFm2$tipo_hoja=="Madura"])
+points(FvFm2$masa_fresco_g[FvFm2$tipo_hoja=="Madura"], FvFm2$emp_esp[FvFm2$tipo_hoja=="Madura"], col="red", pch=19)
+points(FvFm2$masa_fresco_g[FvFm2$tipo_hoja=="Intermedia"], FvFm2$emp_esp[FvFm2$tipo_hoja=="Intermedia"], col="blue", pch=19)
+points(FvFm2$masa_fresco_g[FvFm2$tipo_hoja=="Joven"], FvFm2$emp_esp[FvFm2$tipo_hoja=="Joven"], col="gray", pch=19)
+text(FvFm2$masa_fresco_g[FvFm2$tipo_hoja=="Madura"], FvFm2$emp_esp[FvFm2$tipo_hoja=="Madura"],
+     FvFm2$n[FvFm2$tipo_hoja=="Madura"])
 
+FvFm2[282,]
 
-
-
-
-
-
+ 
 
 
 
